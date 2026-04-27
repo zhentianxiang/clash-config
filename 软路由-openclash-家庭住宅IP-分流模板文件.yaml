@@ -1,0 +1,550 @@
+# =========================================================
+# OpenClash / Clash Meta 配置文件
+# 用途：
+# 1. 默认 HTTP / SOCKS 代理入口
+# 2. AdsPower 多账号专用 SOCKS5 入口
+# 3. DNS 防污染 / 防泄漏配置
+# 4. 订阅节点、手动住宅 IP 节点、规则分流、策略组配置
+# =========================================================
+
+
+# =========================================================
+# 一、基础代理端口配置
+# =========================================================
+
+# 默认 HTTP 代理端口
+# 说明：
+# - 访问 192.168.10.100:7890 时，会进入 Clash 的默认 HTTP 代理入口
+# - 该端口不绑定固定国家
+# - 最终走哪个节点，由 rules 和 proxy-groups 决定
+# - 不建议 AdsPower 账号环境直接使用这个端口
+port: 7890
+
+# 默认 SOCKS5 代理端口
+# 说明：
+# - 访问 192.168.10.100:7891 时，会进入 Clash 的默认 SOCKS5 代理入口
+# - 该端口不绑定固定国家
+# - 最终走哪个节点，由 rules 和 proxy-groups 决定
+# - 不建议 AdsPower 账号环境直接使用这个端口
+socks-port: 7891
+
+# 允许局域网设备访问 OpenClash 代理端口
+# 说明：
+# - AdsPower 所在电脑、手机、其他局域网设备要连接 OpenClash，必须开启
+# - 如果关闭，只允许路由器本机访问
+allow-lan: true
+
+# 规则模式
+# 说明：
+# - rule：按照下面 rules 规则分流
+# - global：所有流量走一个全局节点
+# - direct：全部直连
+mode: rule
+
+
+# =========================================================
+# 二、AdsPower / 多账号专用入口
+# =========================================================
+# 说明：
+# - 这里的 listeners 是额外开出来的独立代理入口
+# - 推荐一个端口绑定一个国家或一个固定住宅 IP
+# - 例如：
+#   7901 = 德国环境
+#   7902 = 新加坡环境
+#   7903 = 美国环境
+#
+# 注意：
+# - 这里要用 proxy 字段直接绑定出口
+# - 不要用 SRC-PORT 规则绑定，因为 SRC-PORT 匹配的是客户端随机源端口，不是监听端口
+# =========================================================
+
+listeners:
+  # 德国 AdsPower 专用 SOCKS5 入口
+  # 使用方式：
+  # - 代理类型：SOCKS5
+  # - Host：192.168.10.100
+  # - Port：7901
+  # - 用户名：Clash
+  # - 密码：OpenClash 启动日志里显示的密码
+  #
+  # 该入口已强制绑定：
+  # - 德国-法兰克福-长期住宅IP
+  - name: adspower-de
+    type: socks
+    port: 7901
+    listen: 0.0.0.0
+    proxy: 德国-法兰克福-长期住宅IP
+
+  # 新加坡 AdsPower 专用 SOCKS5 入口
+  # 说明：
+  # - 当前绑定到策略组：🇸🇬 狮城节点
+  # - 如果你以后有固定新加坡住宅 IP，可以把 proxy 改成对应的节点名称
+  - name: adspower-sg
+    type: socks
+    port: 7902
+    listen: 0.0.0.0
+    proxy: 🇸🇬 狮城节点
+
+  # 美国 AdsPower 专用 SOCKS5 入口
+  # 说明：
+  # - 当前绑定到策略组：🇺🇲 美国节点
+  # - 如果你以后有固定美国住宅 IP，可以把 proxy 改成对应的节点名称
+  - name: adspower-us
+    type: socks
+    port: 7903
+    listen: 0.0.0.0
+    proxy: 🇺🇲 美国节点
+
+
+# =========================================================
+# 三、DNS 配置
+# =========================================================
+# 说明：
+# - DNS 是防止 DNS 污染和 DNS 泄漏的关键
+# - 当前使用 fake-ip 模式
+# - 国内域名使用国内 DNS
+# - 国外域名使用 Google / Cloudflare DoH
+# =========================================================
+
+dns:
+  # 启用 Clash DNS
+  enable: true
+
+  # DNS 监听地址
+  # 说明：
+  # - 0.0.0.0:53 表示监听所有网卡的 53 端口
+  # - OpenClash 配合 Dnsmasq 转发时会用到
+  listen: 0.0.0.0:53
+
+  # DNS 增强模式
+  # fake-ip：
+  # - Clash 返回一个虚拟 IP
+  # - 后续连接由 Clash 接管并按域名规则分流
+  # - 一般比 redir-host 更适合分流和防污染
+  enhanced-mode: fake-ip
+
+  # fake-ip 使用的虚拟 IP 段
+  fake-ip-range: 198.18.0.1/16
+
+  # 代理服务器域名解析 DNS
+  # 说明：
+  # - 用于解析代理节点服务器、订阅地址、DoH 地址等
+  # - 必须尽量使用直连可用 DNS，避免代理还没起来时 DNS 死循环
+  proxy-server-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  # 默认 DNS
+  # 说明：
+  # - 主要用于基础解析
+  # - 国内环境建议使用阿里 / 腾讯 DNS
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  # 主 DNS
+  # 说明：
+  # - 国内域名优先使用这里
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  # fallback DNS
+  # 说明：
+  # - 国外域名或疑似被污染域名会使用这里
+  # - DoH 可以降低 DNS 污染概率
+  fallback:
+    - https://dns.google/dns-query
+    - https://cloudflare-dns.com/dns-query
+    - 8.8.8.8
+    - 1.1.1.1
+
+  # DNS 分流策略
+  # 说明：
+  # - geosite:cn 使用国内 DNS
+  # - geosite:geolocation-!cn 使用国外 DoH
+  nameserver-policy:
+    "geosite:cn":
+      - 223.5.5.5
+      - 119.29.29.29
+    "geosite:geolocation-!cn":
+      - https://dns.google/dns-query
+      - https://cloudflare-dns.com/dns-query
+
+  # fallback 过滤规则
+  # 说明：
+  # - 当国内 DNS 返回异常结果时，切换到 fallback
+  # - 防止国外域名被污染到国内 IP
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    geosite:
+      - gfw
+
+
+# =========================================================
+# 四、订阅节点配置
+# =========================================================
+# 说明：
+# - proxy-providers 用来拉取机场订阅节点
+# - 下面的 5aez4xurfxvh 是你的订阅提供器名称
+# - 策略组里的 use: *proxy-providers-use 会引用这里的订阅节点
+# =========================================================
+
+proxy-providers:
+  # 订阅地址
+  5aez4xurfxvh:
+    type: http
+
+    # 原订阅地址备份
+    # url: "https://sep.bbdmfetch.com/api/v1/client/subscribe?token=1c5aa090d47457fe37429deef78cadb9"
+
+    # 当前使用的订阅地址
+    url: "https://liangxin.xyz/api/v1/liangxin?OwO=5946a94ad623e44f8a9539cd2726d124"
+
+    # 拉取订阅时直连
+    # 说明：
+    # - 避免订阅更新依赖代理造成循环
+    proxy: DIRECT
+
+    # 每 3600 秒更新一次订阅
+    interval: 3600
+
+    # 节点健康检查
+    # 说明：
+    # - 用于自动选择、url-test 策略组测速
+    health-check:
+      enable: true
+      url: https://www.gstatic.com/generate_204
+      interval: 900
+
+
+# =========================================================
+# 五、订阅引用锚点
+# =========================================================
+# 说明：
+# - 这里定义一个 YAML 锚点
+# - 后续多个策略组可以复用这个订阅节点列表
+# =========================================================
+
+proxy-providers-config:
+  proxy-providers-use: &proxy-providers-use
+    - 5aez4xurfxvh
+
+
+# =========================================================
+# 六、策略组通用节点模板
+# =========================================================
+# 说明：
+# - pr 是一个复用模板
+# - 多个 select 策略组会引用它
+# - 这里面放的是“策略组名称”，不是具体节点信息
+# =========================================================
+
+pr: &pr
+  proxies:
+    - 🇭🇰 香港节点
+    - 🇹🇼 台湾节点
+    - 🇯🇵 日本节点
+    - 🇸🇬 狮城节点
+    - 🇺🇲 美国节点
+    - 🇰🇷 韩国节点
+    - 🇩🇪 德国节点
+    - ✌手动切换
+    - ♻️ 自动选择
+    - DIRECT
+
+
+# =========================================================
+# 七、手动添加节点
+# =========================================================
+# 说明：
+# - 这里用于添加你自己购买的固定代理
+# - 当前添加的是德国法兰克福长期住宅 IP
+# - 这个节点被 7901 listener 直接绑定
+# =========================================================
+
+proxies:
+  # 德国长期住宅 IP 节点
+  # 说明：
+  # - 这是你当前给 AdsPower 德国账号环境使用的核心出口
+  # - 7901 端口已经直接绑定此节点
+  #
+  # 注意：
+  # - dialer-proxy 表示“通过另一个节点去连接这个 socks5 节点”
+  # - 当前是先走美国节点，再连接德国住宅 IP
+  # - 如果德国 socks5 可以直连，建议删除 dialer-proxy，链路更干净
+  - {name: 德国-法兰克福-长期住宅IP, type: socks5, server: 145.79.120.103, port: 443, username: "RBvBbxwzsiRe", password: "OSuXXZWcaW", udp: true, dialer-proxy: 🇺🇲 美国节点}
+
+
+# =========================================================
+# 八、分流规则
+# =========================================================
+# 说明：
+# - rules 从上到下匹配
+# - 命中第一条后就不会继续往下
+# - listener 已经用 proxy 绑定出口时，一般不需要再用 SRC-PORT
+# =========================================================
+
+rules:
+  # 指定某台局域网设备强制走德国住宅 IP
+  # 说明：
+  # - 192.168.10.22 这台设备的流量全部走德国-法兰克福-长期住宅IP
+  # - 如果你不想整台设备都走德国，可以删除或注释这一行
+  - SRC-IP-CIDR,192.168.10.22/32,德国-法兰克福-长期住宅IP
+
+  # 私有 IP 直连
+  # 说明：
+  # - 局域网、内网地址不走代理
+  - RULE-SET,private_ip,🎯 全球直连,no-resolve
+
+  # YouTube 域名走 YouTube 策略组
+  - RULE-SET,youtube_domain,📹 油管视频
+
+  # Apple 服务走 Apple 策略组
+  - RULE-SET,Apple,🍎Apple
+
+  # OpenAI 服务走 OpenAI 策略组
+  - RULE-SET,OpenAI,💬 OpenAi
+
+  # 中国大陆域名直连
+  - RULE-SET,cn_domain,🎯 全球直连
+
+  # 非中国大陆域名走漏网之鱼策略组
+  - RULE-SET,geolocation-!cn,🐟 漏网之鱼
+
+  # 中国大陆 IP 直连
+  - RULE-SET,cn_ip,🎯 全球直连
+
+  # 最终兜底规则
+  # 说明：
+  # - 前面都没匹配到的流量会走这里
+  # - 这个策略组很重要，默认出口基本由它决定
+  - MATCH,🐟 漏网之鱼
+
+
+# =========================================================
+# 九、策略组配置
+# =========================================================
+# 说明：
+# - proxy-groups 决定不同规则命中后可以选择哪些节点
+# - select：手动选择
+# - url-test：自动测速选择
+# =========================================================
+
+proxy-groups:
+  # 主节点选择
+  # 说明：
+  # - 常规代理流量可以走这里
+  # - 不建议 AdsPower 固定账号环境依赖这个组
+  - name: 🚀 节点选择
+    type: select
+    <<: *pr
+
+  # 手动切换
+  # 说明：
+  # - 展示订阅里的所有节点
+  # - 可以手动指定某一个机场节点
+  - name: ✌手动切换
+    type: select
+    use: *proxy-providers-use
+
+  # 自动选择
+  # 说明：
+  # - 自动测试订阅节点延迟
+  # - 自动选择延迟较低节点
+  # - 不适合账号环境固定 IP 使用
+  - name: ♻️ 自动选择
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    use: *proxy-providers-use
+
+  # Apple 策略组
+  # 说明：
+  # - Apple 相关服务命中后走这里
+  - name: 🍎Apple
+    type: select
+    <<: *pr
+
+  # YouTube 策略组
+  # 说明：
+  # - YouTube 相关域名命中后走这里
+  - name: 📹 油管视频
+    type: select
+    <<: *pr
+
+  # OpenAI 策略组
+  # 说明：
+  # - OpenAI / ChatGPT 相关域名命中后走这里
+  - name: 💬 OpenAi
+    type: select
+    <<: *pr
+
+  # 全球直连策略组
+  # 说明：
+  # - 默认 DIRECT
+  # - 如果某些国内服务异常，也可以手动切到节点选择
+  - name: 🎯 全球直连
+    type: select
+    proxies:
+      - DIRECT
+      - 🚀 节点选择
+
+  # 广告拦截策略组
+  # 说明：
+  # - REJECT：拒绝连接
+  # - DIRECT：不拦截
+  - name: 🛑 广告拦截
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+
+  # 漏网之鱼策略组
+  # 说明：
+  # - 这是最终兜底出口
+  # - 很多没有明确匹配的国外流量会走这里
+  # - 如果这里选择了自动选择，就可能出现出口变成日本、美国等情况
+  - name: 🐟 漏网之鱼
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - ♻️ 自动选择
+      - DIRECT
+
+  # 香港节点自动测速组
+  - name: 🇭🇰 香港节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    use: *proxy-providers-use
+    filter: (?i)香港|香江|Hong Kong|HK|🇭🇰|Hongkong
+
+  # 台湾节点自动测速组
+  - name: 🇹🇼 台湾节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    use: *proxy-providers-use
+    filter: (?i)台湾|台灣|Taiwan|TW|🇹🇼
+
+  # 日本节点自动测速组
+  - name: 🇯🇵 日本节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    use: *proxy-providers-use
+    filter: (?i)日本|JP|Japan|🇯🇵|Tokyo
+
+  # 新加坡节点自动测速组
+  - name: 🇸🇬 狮城节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    use: *proxy-providers-use
+    filter: (?i)新加坡|SG|Singapore|🇸🇬
+
+  # 美国节点自动测速组
+  - name: 🇺🇲 美国节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 150
+    use: *proxy-providers-use
+    filter: (?i)美国|US|United States|🇺🇸|California|New York
+
+  # 韩国节点自动测速组
+  - name: 🇰🇷 韩国节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    use: *proxy-providers-use
+    filter: (?i)韩国|KR|Korea|🇰🇷|Seoul
+
+  # 德国节点自动测速组
+  # 说明：
+  # - 这里匹配的是订阅里的德国节点
+  # - 不等于你手动添加的德国住宅 IP
+  # - AdsPower 德国环境目前使用的是手动节点：德国-法兰克福-长期住宅IP
+  - name: 🇩🇪 德国节点
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 150
+    use: *proxy-providers-use
+    filter: (?i)德国|DE|Germany|🇩🇪|Frankfurt|Berlin
+
+
+# =========================================================
+# 十、规则订阅模板
+# =========================================================
+# 说明：
+# - rule-anchor 是 YAML 锚点
+# - 用于减少下面 rule-providers 的重复配置
+# - ip 表示 IP-CIDR 规则
+# - domain 表示域名规则
+# =========================================================
+
+rule-anchor:
+  ip: &ip {type: http, interval: 86400, behavior: ipcidr, format: mrs}
+  domain: &domain {type: http, interval: 86400, behavior: domain, format: mrs}
+
+
+# =========================================================
+# 十一、规则订阅
+# =========================================================
+# 说明：
+# - 这里从 MetaCubeX 官方规则库拉取规则
+# - cn_domain / cn_ip 用于国内直连
+# - geolocation-!cn 用于国外域名代理
+# - private_ip 用于内网直连
+# =========================================================
+
+rule-providers:
+  # 私有域名规则
+  # 例如 localhost、局域网相关域名
+  private_domain:
+    <<: *domain
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"
+
+  # 中国大陆域名规则
+  cn_domain:
+    <<: *domain
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"
+
+  # 非中国大陆域名规则
+  geolocation-!cn:
+    <<: *domain
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"
+
+  # 私有 IP 规则
+  private_ip:
+    <<: *ip
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/private.mrs"
+
+  # 中国大陆 IP 规则
+  cn_ip:
+    <<: *ip
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"
+
+  # YouTube 域名规则
+  youtube_domain:
+    <<: *domain
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"
+
+  # Apple 域名规则
+  Apple:
+    <<: *domain
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"
+
+  # OpenAI 域名规则
+  OpenAI:
+    <<: *domain
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/openai.mrs"
