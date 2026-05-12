@@ -274,8 +274,14 @@ proxies:
   # - dialer-proxy 表示“通过另一个节点去连接这个 socks5 节点”
   # - 当前是先走美国节点，再连接德国住宅 IP
   # - 如果德国 socks5 可以直连，建议删除 dialer-proxy，链路更干净
-  - {name: 德国-法兰克福-长期住宅IP, type: socks5, server: 145.79.120.103, port: 443, username: "RBvBbxwzsiRe", password: "OSuXXZWcaW", udp: true, dialer-proxy: 🇺🇲 美国节点}
-
+  - name: "德国-法兰克福-长期住宅IP"
+    type: socks5
+    server: 145.79.120.103
+    port: 443
+    username: "RBvBbxwzsiRe"
+    password: "OSuXXZWcaW"
+    udp: true
+    dialer-proxy: "🇺🇲 美国节点"
 
 # =========================================================
 # 八、分流规则
